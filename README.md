@@ -7,6 +7,9 @@ This folder contains scripts and files to upgrade all agents in your setup via t
 ## restore_archive.ps1 ![alt text](https://i.imgur.com/F6NAQyb.png "Script supports standard Get-Help cmdlet")
 This script restores deleted files from archive (.sync\Archive folder of any synchronized folder) or just shows files that were deleted and could be restored.
 
+Note that the script has certain limitation as it considers all the `<filename>.number.<extension>` to be the versions of `<filename>.<extension>` file.
+
+
 ## start-process-under-logged-on-user.ps1
 This script allows to start process (`-AppPath`) with arguments (`-AppCmd`) under currently logged on user and show UI for him. Also, you can specify working directory (`-WorkDir`) and wait till process will be ended (`-Wait`).
  
