@@ -23,16 +23,19 @@ The script drops upgrade.log in same directoru it resides.
 
 ## verify_upgrade.ps1 ![alt text](https://i.imgur.com/F6NAQyb.png "Script supports standard Get-Help cmdlet")
 The script verifies if all the pre-requisites are met to perform an upgrade. In case something is missing, script will report an error and exit with error code. In case you cannot get upgrade logs, you can rely on codes:
-0 - All is okay, proceed with an upgrade
-1 - Upgrade is not necessary as version of old and new binaries match
-2 - upgradable x86 binary missing
-3 - upgradable x64 binary missing
-4 - powershell script agent_upgrade.ps1 missing
-5 - Task Scheduler configuration file resilioupgrade.xml missing
-12 - Agent runs without elevated privileges, upgrade not possible
-13 - Laptop is runninng on battery mode, upgrade won't launch until user connects to AC
-14 - task scheduler not running, upgrade not possible
-15 - installed version is newer than one supplied, upgrade script stops with no changes
+
+| Error code    | Error meaning                                                                               |
+| ------------- | ------------------------------------------------------------------------------------------- |
+| 0             | All is okay, proceed with an upgrade                                                        |
+| 1             | Upgrade is not necessary as version of old and new binaries match                           |
+| 2             | upgradable x86 binary missing                                                               |
+| 3             | upgradable x64 binary missing                                                               |
+| 4             | powershell script agent_upgrade.ps1 missing                                                 |
+| 5             | Task Scheduler configuration file resilioupgrade.xml missing                                |
+| 12            | Agent runs without elevated privileges, upgrade not possible                                |
+| 13            | Laptop is runninng on battery mode, upgrade won't launch until user connects to AC          |
+| 14            | task scheduler not running, upgrade not possible                                            |
+| 15            | installed version is newer than one supplied, upgrade script stops with no changes          |
 
 If error code is higher than zero, log of the verification is dumped to "verify.log" file next to the script.
 
