@@ -1,4 +1,5 @@
-# Agent upgrade pack
+# Agent Upgrade Pack
+
 This folder contains set of scripts and components to perform agent upgrade via Distribution job. Upgrade technique implies startup of the scripts via TaskScheduler service to fully detach from original agent performing upgrade. Upgrade is done via moving binaries and storage folder (if necessary).
 Upgrade script determines itelf which versions are being upgraded and takes care of stroage migration. Upgrade script detects x64/x86 platform automatically and decides which agent exe to take.
 All scripts imply they are running in "C:\ResilioUpgrade" folder and the folder also contains Agent upgradeables (executables Resilio-Connect-Agent.exe and Resilio-Connect-Agent_x64.exe)
