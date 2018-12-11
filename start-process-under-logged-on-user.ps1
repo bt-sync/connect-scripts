@@ -1,3 +1,41 @@
+<#
+.SYNOPSIS
+The script allows to run any application under active user session 
+no matter under which session script runs itself.
+
+.DESCRIPTION
+Resilio Connect Agent runs as LOCAL SYSTEM or LOCAL SERVICE account
+by default. While running as service grants Agent many advantages
+there's one great disadvantage: all UI apps started by Agent are not
+visible by end user. This happens due to fact that all services 
+start under different user session.
+
+This script allows to push desired application to user session which
+is active at the moment (i.e. usually - visible to end user). If 
+no active users are found, the script ends with error. If multiple
+active sessions are available (Windows server platforms allow
+multiple sessions), the script picks the first logged in session.
+
+.PARAMETER AppPath
+Full path to the app executable. The AppPath cannot be relative.
+
+.PARAMETER AppCmd
+Parameters to be passed to the executable
+
+.PARAMETER WorkDir
+Current working directory for the executable
+
+.PARAMETER Wait
+Set to force script to wait while required application exits. If
+not set, the script starts application and exits immediately no
+matter if app is still running or not
+
+.EXAMPLE
+start-process-under-logged-on-user.ps1 -AppPath C:\Windows\notepad.exe -Wait
+Will start the notepad.exe and prevent script from exiting until end user closes notepad.exe
+#>
+
+
 Param(
 	[Parameter(Mandatory=$true)]
 	[string]$AppPath,
