@@ -2,7 +2,7 @@
 
 This folder contains set of scripts and components necesssary to change your Agent's sync.conf file via Distribution job. Script also restarts agent service if necesary. The script does not care about the folder it runs into.
 Minimal set of files that should be present in distribution folder
-* update-syncconf.ps1 ![alt text](https://i.imgur.com/F6NAQyb.png "Script supports standard Get-Help cmdlet")
+* update-syncconf.ps1
 
 The files *.copy_to_trigger are not necessary to be present in distributed folder but copied to the trigger of update job on MC. 
 
