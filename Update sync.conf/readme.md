@@ -24,6 +24,7 @@ This file contains cmd script which needs to be placed to post-download trigger 
 Script for Mac OS.
 Do the same things as update-syncconf.ps1, excepting agent restart
 
+```
 $ ./update-syncconf.py --help
 usage: update-syncconf.py [-h] [--conf <path_to_sync.conf>]
                           [--parameter <name>] [--value <value>]
@@ -53,3 +54,4 @@ optional arguments:
   --tags <value>        value to set to tags
   --folders_storage_path <value>
                         value to set to folders_storage_path
+```
