@@ -19,3 +19,37 @@ This XML spawned automatically into a target folder by script if agent restart i
 
 ## upgrade-post-download.cmd.copy_to_trigger
 This file contains cmd script which needs to be placed to post-download trigger of the update job. Please note that you need to specify necessary parameterys yourself before firing the job
+
+## update-syncconf.py
+Script for Mac OS.
+Do the same things as update-syncconf.ps1, excepting agent restart
+
+$ ./update-syncconf.py --help
+usage: update-syncconf.py [-h] [--conf <path_to_sync.conf>]
+                          [--parameter <name>] [--value <value>]
+                          [--delete <parameter_name>] [--host <value>]
+                          [--fingerprint <value>]
+                          [--disable_cert_check <value>]
+                          [--bootstrap_token <value>] [--tags <value>]
+                          [--folders_storage_path <value>]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --conf <path_to_sync.conf>
+                        path to sync.conf (default:
+                        /Users/<username>/Library/Application Support/Resilio Connect
+                        Agent/sync.conf)
+  --parameter <name>    name of parameter to manipulate
+  --value <value>       value to set to parameter
+  --delete <parameter_name>
+                        delete parameter
+  --host <value>        value to set to host
+  --fingerprint <value>
+                        value to set to fingerprint
+  --disable_cert_check <value>
+                        value to set to disable_cert_check
+  --bootstrap_token <value>
+                        value to set to bootstrap_token
+  --tags <value>        value to set to tags
+  --folders_storage_path <value>
+                        value to set to folders_storage_path
