@@ -26,10 +26,10 @@ Do the same things as update-syncconf.ps1, excepting agent restart
 
 ```
 $ ./update-syncconf.py --help
-usage: update-syncconf.py [-h] [--config <path_to_sync.conf>]
+usage: update-syncconf.py [-h] --config <path_to_sync.conf>
                           [--parameter <name>=<value> [<name>=<value> ...]]
-                          [--delete <parameter_name>] [--host <value>]
-                          [--fingerprint <value>]
+                          [--delete <parameter_name>] [--restart_agent]
+                          [--host <value>] [--fingerprint <value>]
                           [--disable_cert_check <value>]
                           [--bootstrap_token <value>] [--tags <value>]
                           [--folders_storage_path <value>] [--use_gui <value>]
@@ -46,6 +46,7 @@ optional arguments:
                         folders_storage_path="D:\Downloads"
   --delete <parameter_name>, -d <parameter_name>
                         delete parameter
+  --restart_agent       restart Resilio Connect Agent after applying config
   --host <value>        value to set to host
   --fingerprint <value>
                         value to set to fingerprint
