@@ -11,11 +11,14 @@
 
 import argparse
 import json
+import logging
 import os
 import signal
 import subprocess
 import sys
 import time
+
+
 
 management_server_args = ['bootstrap_token',
                           'cert_authority_fingerprint',
@@ -29,16 +32,23 @@ agent_process_name = 'Resilio Connect'
 
 def main():
     args = get_args()
-    print 'Reading {}'.format(args.config) + os.linesep
+    init_logging(args.log)
+    logging.info('Reading {}'.format(args.config) + os.linesep)
     config = read_agent_config(args.config)
 
-    print 'Current sync.conf is:' + os.linesep + str(config) + os.linesep
+    logging.info('Current sync.conf is:' + os.linesep + str(config) + os.linesep)
 
     new_config = process_tasks(config, args)
     if new_config:
         save_agent_config(args.config, new_config)
-        print Colors.green + 'New sync.conf is:' + os.linesep + str(config) + Colors.end + os.linesep
+        logging.info(Colors.green + 'New sync.conf is:' + os.linesep + str(config) + Colors.end + os.linesep)
 
+
+def init_logging(log_to_file=False):
+    if log_to_file:
+        logging.basicConfig(filename='update-syncconf.log', format='%(message)s', level=logging.INFO)
+    else:
+        logging.basicConfig(format='%(message)s', level=logging.INFO)
 
 def process_tasks(config, args):
     create_new_config = False
@@ -113,9 +123,9 @@ def restart_agent():
 
 def stop_agent_daemon():
     if os.path.isfile(launch_daemon_path):
-        print 'Stopping Resilio Connect Agent daemon.'
+        logging.info('Stopping Resilio Connect Agent daemon.')
         subprocess.call(['sudo', 'launchctl', 'unload', '-w', '/Library/LaunchDaemons/com.resilio.agent.plist'])
-        print 'Done.'
+        logging.info('Done.')
         return True
 
     return False
@@ -123,9 +133,9 @@ def stop_agent_daemon():
 
 def start_agent_daemon():
     if os.path.isfile(launch_daemon_path):
-        print 'Starting Resilio Connect Agent daemon.'
+        logging.info('Starting Resilio Connect Agent daemon.')
         subprocess.call(['sudo', 'launchctl', 'load', '-w', '/Library/LaunchDaemons/com.resilio.agent.plist'])
-        print 'Done. Resilio Connect Agent should start in a 90 seconds'
+        logging.info('Done. Resilio Connect Agent should start in a 90 seconds')
         return True
 
     return False
@@ -134,29 +144,29 @@ def start_agent_daemon():
 def stop_agent():
     agent_pid = get_pid(agent_process_name)
     if len(agent_pid) > 1:
-        print Colors.red + 'Several PIDs found! Can\'t stop Resilio Connect Agent' + Colors.end
+        logging.info(Colors.red + 'Several PIDs found! Can\'t stop Resilio Connect Agent' + Colors.end)
         sys.exit(1)
 
     if agent_pid:
         os.kill(agent_pid[0], signal.SIGTERM)
         while get_pid(agent_process_name):
-            print 'Waiting for Resilio Connect Agent to quit...'
+            logging.info('Waiting for Resilio Connect Agent to quit...')
             time.sleep(5)
 
-        print 'Done.'
+        logging.info('Done.')
 
 
 def start_agent():
     subprocess.Popen(['/Applications/Resilio Connect Agent.app/Contents/MacOS/Resilio Connect Agent'])
     agent_pid = get_pid(agent_process_name)
     if agent_pid:
-        print 'Started Resilio Connect Agent. PID {}'.format(agent_pid[0])
+        logging.info('Started Resilio Connect Agent. PID {}'.format(agent_pid[0]))
     else:
-        print Colors.red + 'Failed to start Resilio Connect Agent' + Colors.end
+        logging.error(Colors.red + 'Failed to start Resilio Connect Agent' + Colors.end)
 
 
 def delete_parameter(name, config):
-    print "Deleting '{}'".format(name) + os.linesep
+    logging.info("Deleting '{}'".format(name) + os.linesep)
 
     if name in config:
         del config[name]
@@ -166,11 +176,11 @@ def delete_parameter(name, config):
         del config['management_server'][name]
         return
 
-    print Colors.warn + 'Can\'t find {} in sync.conf. Skipping'.format(name) + Colors.end + os.linesep
+    logging.error(Colors.warn + 'Can\'t find {} in sync.conf. Skipping'.format(name) + Colors.end + os.linesep)
 
 
 def set_parameter(name, config, value):
-    print "Setting '{}' to '{}'".format(name, value) + os.linesep
+    logging.info("Setting '{}' to '{}'".format(name, value) + os.linesep)
 
     if name in management_server_args:
         if 'management_server' not in config:
@@ -212,7 +222,7 @@ def read_agent_config(config):
     try:
         data = json.load(handle)
     except ValueError:
-        print Colors.red + 'Invalid sync.conf: {}\n{}'.format(handle, handle.read()) + Colors.end + os.linesep
+        logging.error(Colors.red + 'Invalid sync.conf: {}\n{}'.format(handle, handle.read()) + Colors.end + os.linesep)
         handle.close()
         sys.exit(1)
 
@@ -316,6 +326,10 @@ def parse_arguments():
                         type=str2bool,
                         metavar='<value>',
                         help='value to set to use_gui')
+    parser.add_argument('--log',
+                        default=False,
+                        help='log everything to file',
+                        action='store_true')
 
     args = parser.parse_args()
 
