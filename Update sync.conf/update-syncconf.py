@@ -37,8 +37,7 @@ def main():
     new_config = process_tasks(config, args)
     if new_config:
         save_agent_config(args.config, new_config)
-
-    print Colors.green + 'New sync.conf is:' + os.linesep + str(config) + Colors.end + os.linesep
+        print Colors.green + 'New sync.conf is:' + os.linesep + str(config) + Colors.end + os.linesep
 
 
 def process_tasks(config, args):
