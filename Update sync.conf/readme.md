@@ -26,19 +26,19 @@ Do the same things as update-syncconf.ps1, excepting agent restart
 
 ```
 $ ./update-syncconf.py --help
-usage: update-syncconf.py [-h] [--conf <path_to_sync.conf>]
+usage: update-syncconf.py [-h] [--config <path_to_sync.conf>]
                           [--parameter <name>] [--value <value>]
                           [--delete <parameter_name>] [--host <value>]
                           [--fingerprint <value>]
                           [--disable_cert_check <value>]
                           [--bootstrap_token <value>] [--tags <value>]
-                          [--folders_storage_path <value>]
+                          [--folders_storage_path <value>] [--use_gui <value>]
 
 optional arguments:
   -h, --help            show this help message and exit
-  --conf <path_to_sync.conf>
+  --config <path_to_sync.conf>
                         path to sync.conf (default:
-                        /Users/<username>/Library/Application Support/Resilio Connect
+                        /Users/ac/Library/Application Support/Resilio Connect
                         Agent/sync.conf)
   --parameter <name>    name of parameter to manipulate
   --value <value>       value to set to parameter
@@ -54,4 +54,5 @@ optional arguments:
   --tags <value>        value to set to tags
   --folders_storage_path <value>
                         value to set to folders_storage_path
+  --use_gui <value>     value to set to use_gui
 ```

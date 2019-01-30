@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# title           :update-syncconf.py
-# description     :This script updates sync.conf of Resilio Connect Agent
+# title           :update-syncconfig.py
+# description     :This script updates sync.config of Resilio Connect Agent
 # author          :Alexey Costroma
 # date            :20190129
-# version         :0.1
-# usage           :python update-syncconf.py
+# version         :0.2
+# usage           :python update-syncconfig.py
 # python_version  :2.7.10
 # ==============================================================================
 
@@ -20,73 +20,95 @@ management_server_args = ['bootstrap_token',
 
 def main():
     args = get_args()
-    conf = read_sync_conf(args.conf)
+    config = read_sync_config(args.config)
 
-    print 'Current sync.conf is:\n{}'.format(conf) + os.linesep
+    print 'Current sync.config is:\n{}'.format(config) + os.linesep
 
-    new_conf = process_tasks(conf, args)
-    save_sync_conf(args.conf, new_conf)
+    new_config = process_tasks(config, args)
+    save_sync_config(args.config, new_config)
 
-    print Colors.green + 'New sync.conf is:\n{}'.format(conf) + Colors.end + os.linesep
+    print Colors.green + 'New sync.config is:\n{}'.format(config) + Colors.end + os.linesep
 
 
-def process_tasks(conf, args):
+def process_tasks(config, args):
     if args.parameter is not None:
-        set_parameter(args.parameter, conf, args.value)
+        set_parameter(args.parameter, config, args.value)
 
     if args.host is not None:
-        set_parameter('host', conf, args.host)
+        set_parameter('host', config, args.host)
 
     if args.fingerprint is not None:
-        set_parameter('cert_authority_fingerprint', conf, args.fingerprint)
+        set_parameter('cert_authority_fingerprint', config, args.fingerprint)
 
     if args.disable_cert_check is not None:
-        set_parameter('disable_cert_check', conf, args.disable_cert_check)
+        set_parameter('disable_cert_check', config, args.disable_cert_check)
+
+    if args.use_gui is not None:
+        set_parameter('use_gui', config, args.use_gui)
 
     if args.bootstrap_token is not None:
-        set_parameter('bootstrap_token', conf, args.bootstrap_token)
+        set_parameter('bootstrap_token', config, args.bootstrap_token)
 
     if args.tags is not None:
-        set_parameter('tags', conf, args.tags)
+        set_parameter('tags', config, args.tags)
 
     if args.folders_storage_path is not None:
-        set_parameter('folders_storage_path', conf, args.folders_storage_path)
+        set_parameter('folders_storage_path', config, args.folders_storage_path)
 
     if args.delete is not None:
-        delete_parameter(args.delete, conf)
+        delete_parameter(args.delete, config)
 
-    return conf
+    return config
 
 
-def delete_parameter(name, conf):
+def delete_parameter(name, config):
     print "Deleting '{}'".format(name) + os.linesep
 
-    if name in conf:
-        del conf[name]
+    if name in config:
+        del config[name]
         return
 
-    if 'management_server' in conf and name in conf['management_server']:
-        del conf['management_server'][name]
+    if 'management_server' in config and name in config['management_server']:
+        del config['management_server'][name]
         return
 
-    print Colors.warn + 'Can\'t find {} in sync.conf. Skipping'.format(name) + Colors.end + os.linesep
+    print Colors.warn + 'Can\'t find {} in sync.config. Skipping'.format(name) + Colors.end + os.linesep
 
 
-def set_parameter(name, conf, value):
+def set_parameter(name, config, value):
     print "Setting '{}' to '{}'".format(name, value) + os.linesep
-    if 'management_server' not in conf:
-        conf['management_server'] = {}
+    if 'management_server' not in config:
+        config['management_server'] = {}
+
+    value = verify_value(value)
 
     if name in management_server_args:
-        conf['management_server'][name] = value
+        config['management_server'][name] = value
         return
     else:
-        conf[name] = value
+        config[name] = value
         return
 
 
-def read_sync_conf(conf):
-    handle = open(conf, "r")
+def verify_value(value):
+    if isinstance(value, bool):
+        return value
+
+    bool_value = str2bool(value, False)
+
+    if bool_value is not None:
+        return bool_value
+
+    try:
+        value = int(value)
+    except ValueError:
+        pass
+
+    return value
+
+
+def read_sync_config(config):
+    handle = open(config, "r")
     try:
         data = json.load(handle)
     except ValueError:
@@ -99,8 +121,8 @@ def read_sync_conf(conf):
     return data
 
 
-def save_sync_conf(conf, data):
-    handle = open(conf, "w+")
+def save_sync_config(config, data):
+    handle = open(config, "w+")
     handle.write(json.dumps(data, indent=4))
     handle.write(os.linesep)
     handle.close()
@@ -114,8 +136,8 @@ def get_args():
 
 
 def verify_args(args):
-    if args.conf and not os.path.isfile(args.conf):
-        print Colors.red + "sync.conf doesn't exist on the following path: {}".format(args.conf) + Colors.end + os.linesep
+    if args.config and not os.path.isfile(args.config):
+        print Colors.red + "sync.config doesn't exist on the following path: {}".format(args.config) + Colors.end + os.linesep
         exit(1)
 
     if (args.parameter is not None and args.value is None) or \
@@ -124,14 +146,17 @@ def verify_args(args):
         exit(1)
 
 
-def str2bool(v):
-    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+def str2bool(v, raise_exception=True):
+    if v.lower() in ('yes', 'true'):
         return True
 
-    if v.lower() in ('no', 'false', 'f', 'n', '0'):
+    if v.lower() in ('no', 'false'):
         return False
 
-    raise argparse.ArgumentTypeError('Boolean value expected.')
+    if raise_exception:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+    else:
+        return None
 
 
 class Colors:
@@ -150,7 +175,7 @@ class Colors:
 def parse_arguments():
     user_home = os.path.expanduser("~")
     parser = argparse.ArgumentParser()
-    parser.add_argument('--conf',
+    parser.add_argument('--config',
                         default='{}/Library/Application Support/Resilio Connect Agent/sync.conf'.format(user_home),
                         metavar='<path_to_sync.conf>',
                         help='path to sync.conf (default: %(default)s)')
@@ -183,6 +208,11 @@ def parse_arguments():
     parser.add_argument('--folders_storage_path',
                         metavar='<value>',
                         help='value to set to folders_storage_path')
+    parser.add_argument('--use_gui',
+                        type=str2bool,
+                        metavar='<value>',
+                        help='value to set to use_gui')
+
 
     args = parser.parse_args()
 
