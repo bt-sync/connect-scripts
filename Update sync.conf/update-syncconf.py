@@ -12,28 +12,37 @@
 import argparse
 import json
 import os
+import subprocess
+import sys
 
 management_server_args = ['bootstrap_token',
                           'cert_authority_fingerprint',
                           'disable_cert_check',
                           'host']
 
+launch_daemon_path = '/Library/LaunchDaemons/com.resilio.agent.plist'
+agent_daemon_config = '/Users/resilioagent/Library/Application Support/Resilio Connect Agent/sync.conf'
+agent_process_name = 'Resilio Connect'
+
 
 def main():
     args = get_args()
     print 'Reading {}'.format(args.config) + os.linesep
-    config = read_sync_config(args.config)
+    config = read_agent_config(args.config)
 
     print 'Current sync.conf is:' + os.linesep + str(config) + os.linesep
 
     new_config = process_tasks(config, args)
-    save_sync_config(args.config, new_config)
+    if new_config:
+        save_agent_config(args.config, new_config)
 
     print Colors.green + 'New sync.conf is:' + os.linesep + str(config) + Colors.end + os.linesep
 
 
 def process_tasks(config, args):
+    create_new_config = False
     if args.parameter is not None:
+        create_new_config = True
         for parameter in args.parameter:
             try:
                 name, value = parameter.split('=')
@@ -45,37 +54,104 @@ def process_tasks(config, args):
             set_parameter(name, config, value)
 
     if args.bootstrap_token is not None:
+        create_new_config = True
         value = verify_value(args.bootstrap_token)
         set_parameter('bootstrap_token', config, value)
 
     if args.disable_cert_check is not None:
+        create_new_config = True
         value = verify_value(args.disable_cert_check)
         set_parameter('disable_cert_check', config, value)
 
     if args.fingerprint is not None:
+        create_new_config = True
         value = verify_value(args.fingerprint)
         set_parameter('cert_authority_fingerprint', config, value)
 
     if args.folders_storage_path is not None:
+        create_new_config = True
         value = verify_value(args.folders_storage_path)
         set_parameter('folders_storage_path', config, value)
 
     if args.host is not None:
+        create_new_config = True
         value = verify_value(args.host)
         set_parameter('host', config, value)
 
     if args.tags is not None:
+        create_new_config = True
         value = verify_value(args.tags)
         set_parameter('tags', config, value)
 
     if args.use_gui is not None:
+        create_new_config = True
         value = verify_value(args.use_gui)
         set_parameter('use_gui', config, value)
 
     if args.delete is not None:
+        create_new_config = True
         delete_parameter(args.delete, config)
 
-    return config
+    if args.restart_agent is not None:
+        restart_agent()
+
+    if create_new_config:
+        return config
+    else:
+        return None
+
+
+def restart_agent():
+    if stop_agent_daemon():
+        start_agent_daemon()
+        return
+
+    stop_agent()
+    start_agent()
+
+
+def stop_agent_daemon():
+    if os.path.isfile(launch_daemon_path):
+        print 'Stopping Resilio Connect Agent daemon.'
+        subprocess.call(['sudo', 'launchctl', 'unload', '-w', '/Library/LaunchDaemons/com.resilio.agent.plist'])
+        print 'Done.'
+        return True
+
+    return False
+
+
+def start_agent_daemon():
+    if os.path.isfile(launch_daemon_path):
+        print 'Starting Resilio Connect Agent daemon.'
+        subprocess.call(['sudo', 'launchctl', 'load', '-w', '/Library/LaunchDaemons/com.resilio.agent.plist'])
+        print 'Done. Resilio Connect Agent should start in a 90 seconds'
+        return True
+
+    return False
+
+
+def stop_agent():
+    agent_pid = get_pid(agent_process_name)
+    if len(agent_pid) > 1:
+        print Colors.red + 'Several PIDs found! Can\'t stop Resilio Connect Agent' + Colors.end
+        sys.exit(1)
+
+    if agent_pid:
+        os.kill(agent_pid[0], signal.SIGTERM)
+        while get_pid(agent_process_name):
+            print 'Waiting for Resilio Connect Agent to quit...'
+            sleep(5)
+
+        print 'Done.'
+
+
+def start_agent():
+    subprocess.Popen(['/Applications/Resilio Connect Agent.app/Contents/MacOS/Resilio Connect Agent'])
+    agent_pid = get_pid(agent_process_name)
+    if agent_pid:
+        print 'Started Resilio Connect Agent. PID {}'.format(agent_pid[0])
+    else:
+        print Colors.red + 'Failed to start Resilio Connect Agent' + Colors.end
 
 
 def delete_parameter(name, config):
@@ -130,21 +206,21 @@ def verify_name(value):
     return value
 
 
-def read_sync_config(config):
+def read_agent_config(config):
     handle = open(config, "r")
     try:
         data = json.load(handle)
     except ValueError:
         print Colors.red + 'Invalid sync.conf: {}\n{}'.format(handle, handle.read()) + Colors.end + os.linesep
         handle.close()
-        exit(1)
+        sys.exit(1)
 
     handle.close()
 
     return data
 
 
-def save_sync_config(config, data):
+def save_agent_config(config, data):
     handle = open(config, "w+")
     handle.write(json.dumps(data, indent=4))
     handle.write(os.linesep)
@@ -153,16 +229,8 @@ def save_sync_config(config, data):
 
 def get_args():
     args = parse_arguments()
-    verify_args(args)
 
     return args
-
-
-def verify_args(args):
-    if args.config and not os.path.isfile(args.config):
-        print Colors.red + "sync.conf doesn't exist on the following path: {}".format(args.config) \
-              + Colors.end + os.linesep
-        exit(1)
 
 
 def str2bool(v, raise_exception=True):
@@ -191,21 +259,38 @@ class Colors:
     end = '\033[0m'
 
 
+def get_pid(name):
+    try:
+        pid_list = map(int, list(set(subprocess.check_output(["pidof", name]).split())))
+    except subprocess.CalledProcessError:
+        pid_list = []
+
+    return pid_list
+
+
 def parse_arguments():
     user_home = os.path.expanduser("~")
     parser = argparse.ArgumentParser()
     parser.add_argument('--config',
                         default='{}/Library/Application Support/Resilio Connect Agent/sync.conf'.format(user_home),
                         metavar='<path_to_sync.conf>',
+                        required=True,
                         help='path to sync.conf (default: %(default)s)')
+
     parser.add_argument('--parameter', '-p',
                         metavar='<name>=<value>',
                         help='E.g. --parameter use_gui=True. Several parameters can be set:' + os.linesep + \
                         '--parameter host=192.168.0.1 use_gui=True folders_storage_path="D:\\Downloads"',
                         nargs='+')
+
     parser.add_argument('--delete', '-d',
                         metavar='<parameter_name>',
                         help='delete parameter')
+
+    parser.add_argument('--restart_agent',
+                        default=False,
+                        help='restart Resilio Connect Agent after applying config',
+                        action='store_true')
 
     parser.add_argument('--host',
                         metavar='<value>',
@@ -230,7 +315,6 @@ def parse_arguments():
                         type=str2bool,
                         metavar='<value>',
                         help='value to set to use_gui')
-
 
     args = parser.parse_args()
 
