@@ -27,7 +27,7 @@ Do the same things as update-syncconf.ps1, excepting agent restart
 ```
 $ ./update-syncconf.py --help
 usage: update-syncconf.py [-h] [--config <path_to_sync.conf>]
-                          [--parameter <name>] [--value <value>]
+                          [--parameter <name>=<value> [<name>=<value> ...]]
                           [--delete <parameter_name>] [--host <value>]
                           [--fingerprint <value>]
                           [--disable_cert_check <value>]
@@ -40,9 +40,11 @@ optional arguments:
                         path to sync.conf (default:
                         /Users/ac/Library/Application Support/Resilio Connect
                         Agent/sync.conf)
-  --parameter <name>    name of parameter to manipulate
-  --value <value>       value to set to parameter
-  --delete <parameter_name>
+  --parameter <name>=<value> [<name>=<value> ...], -p <name>=<value> [<name>=<value> ...]
+                        E.g. --parameter use_gui=True. Several parameters can
+                        be set: --parameter host=192.168.0.1 use_gui=True
+                        folders_storage_path="D:\Downloads"
+  --delete <parameter_name>, -d <parameter_name>
                         delete parameter
   --host <value>        value to set to host
   --fingerprint <value>
