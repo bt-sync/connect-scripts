@@ -12,8 +12,10 @@
 import argparse
 import json
 import os
+import signal
 import subprocess
 import sys
+import time
 
 management_server_args = ['bootstrap_token',
                           'cert_authority_fingerprint',
@@ -140,7 +142,7 @@ def stop_agent():
         os.kill(agent_pid[0], signal.SIGTERM)
         while get_pid(agent_process_name):
             print 'Waiting for Resilio Connect Agent to quit...'
-            sleep(5)
+            time.sleep(5)
 
         print 'Done.'
 
