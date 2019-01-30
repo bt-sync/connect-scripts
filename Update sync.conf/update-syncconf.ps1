@@ -72,7 +72,7 @@ Param (
 	[Parameter(ParameterSetName = 'removecustom')]
 	[string]$CustomParameterName,
 	[Parameter(ParameterSetName = 'addcustom')]
-	[object]$CustomParameterValue,
+	[string]$CustomParameterValue,
 	[Parameter(ParameterSetName = 'removecustom')]
 	[switch]$RemoveCustomParameter,
 	[Parameter(ParameterSetName = 'changestandard')]
@@ -191,8 +191,12 @@ try
 		}
 		else
 		{
-			# Update custom parameters here
-			Add-Member -InputObject $syncconf -NotePropertyName $CustomParameterName -NotePropertyValue $CustomParameterValue -Force
+			# Update custom parameters here, keeping in mind it's type to avoid extra quotes
+			$CustomParameterValueTyped = $CustomParameterValue
+			if ($CustomParameterValue -as [int]) { [int]$CustomParameterValueTyped = $CustomParameterValue }
+			if ($CustomParameterValue -like "*true*") { [bool]$CustomParameterValueTyped = $true }
+			if ($CustomParameterValue -like "*false*") { [bool]$CustomParameterValueTyped = $false }
+			Add-Member -InputObject $syncconf -NotePropertyName $CustomParameterName -NotePropertyValue $CustomParameterValueTyped -Force 
 		}
 	}
 	
