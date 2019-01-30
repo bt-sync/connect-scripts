@@ -18,42 +18,59 @@ management_server_args = ['bootstrap_token',
                           'disable_cert_check',
                           'host']
 
+
 def main():
     args = get_args()
+    print 'Reading {}'.format(args.config) + os.linesep
     config = read_sync_config(args.config)
 
-    print 'Current sync.config is:\n{}'.format(config) + os.linesep
+    print 'Current sync.conf is:' + os.linesep + str(config) + os.linesep
 
     new_config = process_tasks(config, args)
     save_sync_config(args.config, new_config)
 
-    print Colors.green + 'New sync.config is:\n{}'.format(config) + Colors.end + os.linesep
+    print Colors.green + 'New sync.conf is:' + os.linesep + str(config) + Colors.end + os.linesep
 
 
 def process_tasks(config, args):
     if args.parameter is not None:
-        set_parameter(args.parameter, config, args.value)
-
-    if args.host is not None:
-        set_parameter('host', config, args.host)
-
-    if args.fingerprint is not None:
-        set_parameter('cert_authority_fingerprint', config, args.fingerprint)
-
-    if args.disable_cert_check is not None:
-        set_parameter('disable_cert_check', config, args.disable_cert_check)
-
-    if args.use_gui is not None:
-        set_parameter('use_gui', config, args.use_gui)
+        for parameter in args.parameter:
+            try:
+                name, value = parameter.split('=')
+            except ValueError:
+                raise argparse.ArgumentTypeError('--parameter has <name>=<value> syntax' + os.linesep +
+                                                 'Multiple values can be set')
+            name = verify_name(name)
+            value = verify_value(value)
+            set_parameter(name, config, value)
 
     if args.bootstrap_token is not None:
-        set_parameter('bootstrap_token', config, args.bootstrap_token)
+        value = verify_value(args.bootstrap_token)
+        set_parameter('bootstrap_token', config, value)
 
-    if args.tags is not None:
-        set_parameter('tags', config, args.tags)
+    if args.disable_cert_check is not None:
+        value = verify_value(args.disable_cert_check)
+        set_parameter('disable_cert_check', config, value)
+
+    if args.fingerprint is not None:
+        value = verify_value(args.fingerprint)
+        set_parameter('cert_authority_fingerprint', config, value)
 
     if args.folders_storage_path is not None:
-        set_parameter('folders_storage_path', config, args.folders_storage_path)
+        value = verify_value(args.folders_storage_path)
+        set_parameter('folders_storage_path', config, value)
+
+    if args.host is not None:
+        value = verify_value(args.host)
+        set_parameter('host', config, value)
+
+    if args.tags is not None:
+        value = verify_value(args.tags)
+        set_parameter('tags', config, value)
+
+    if args.use_gui is not None:
+        value = verify_value(args.use_gui)
+        set_parameter('use_gui', config, value)
 
     if args.delete is not None:
         delete_parameter(args.delete, config)
@@ -72,17 +89,15 @@ def delete_parameter(name, config):
         del config['management_server'][name]
         return
 
-    print Colors.warn + 'Can\'t find {} in sync.config. Skipping'.format(name) + Colors.end + os.linesep
+    print Colors.warn + 'Can\'t find {} in sync.conf. Skipping'.format(name) + Colors.end + os.linesep
 
 
 def set_parameter(name, config, value):
     print "Setting '{}' to '{}'".format(name, value) + os.linesep
-    if 'management_server' not in config:
-        config['management_server'] = {}
-
-    value = verify_value(value)
 
     if name in management_server_args:
+        if 'management_server' not in config:
+            config['management_server'] = {}
         config['management_server'][name] = value
         return
     else:
@@ -103,6 +118,14 @@ def verify_value(value):
         value = int(value)
     except ValueError:
         pass
+
+    return value
+
+
+def verify_name(value):
+    if not value or \
+       not isinstance(value, basestring):
+        raise argparse.ArgumentTypeError('Parameter name can\'t be empty.')
 
     return value
 
@@ -137,12 +160,8 @@ def get_args():
 
 def verify_args(args):
     if args.config and not os.path.isfile(args.config):
-        print Colors.red + "sync.config doesn't exist on the following path: {}".format(args.config) + Colors.end + os.linesep
-        exit(1)
-
-    if (args.parameter is not None and args.value is None) or \
-            (args.value is not None and args.parameter is None):
-        print Colors.red + 'set --parameter and --value together' + Colors.end + os.linesep
+        print Colors.red + "sync.conf doesn't exist on the following path: {}".format(args.config) \
+              + Colors.end + os.linesep
         exit(1)
 
 
@@ -179,13 +198,12 @@ def parse_arguments():
                         default='{}/Library/Application Support/Resilio Connect Agent/sync.conf'.format(user_home),
                         metavar='<path_to_sync.conf>',
                         help='path to sync.conf (default: %(default)s)')
-    parser.add_argument('--parameter',
-                        metavar='<name>',
-                        help='name of parameter to manipulate')
-    parser.add_argument('--value',
-                        metavar='<value>',
-                        help='value to set to parameter')
-    parser.add_argument('--delete',
+    parser.add_argument('--parameter', '-p',
+                        metavar='<name>=<value>',
+                        help='E.g. --parameter use_gui=True. Several parameters can be set:' + os.linesep + \
+                        '--parameter host=192.168.0.1 use_gui=True folders_storage_path="D:\\Downloads"',
+                        nargs='+')
+    parser.add_argument('--delete', '-d',
                         metavar='<parameter_name>',
                         help='delete parameter')
 
