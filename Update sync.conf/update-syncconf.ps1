@@ -72,7 +72,7 @@ Param (
 	[Parameter(ParameterSetName = 'removecustom')]
 	[string]$CustomParameterName,
 	[Parameter(ParameterSetName = 'addcustom')]
-	[string]$CustomParameterValue,
+	[object]$CustomParameterValue,
 	[Parameter(ParameterSetName = 'removecustom')]
 	[switch]$RemoveCustomParameter,
 	[Parameter(ParameterSetName = 'changestandard')]
