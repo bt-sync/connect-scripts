@@ -35,6 +35,17 @@ Specifies custom parameter value which will be set into your sync.conf
 .PARAMETER RemoveCustomParameter
 Set this if you want to delete custom parameter from sync.conf
 
+.PARAMETER EnableAgentUI
+Set this if you want to enable Agent UI. Agent must be restarted for
+change to take effect. You can use RestartAgent switch in the same
+call to both enable UI and restart agent.
+
+.PARAMETER CreateAgentUIShortcut
+Set this if you want to get Agent UI shortcut on user's desktop
+
+.PARAMETER AutorunAgentUI
+Set this if you want automatically start agent UI when user logs in.
+
 .PARAMETER RestartAgent
 Set this if you want script to restart agent service after changing 
 sync.conf. Script will use Windows Task Scheduler to call itself with
@@ -52,13 +63,14 @@ timeouts. After service moves to "Stopped" state, script will start it again.
 update-syncconf.ps1 -CustomParameterName "device_name" -CustomParameterValue "%TAG_AGENT_NAME%"
 
 .EXAMPLE
-update-syncconf.ps1 -CustomParameterName "use_gui" -CustomParameterValue true -RestartAgent
+update-syncconf.ps1 -EnableAgentUI -CreateAgentUIShortcut -AutorunAgentUI -RestartAgent
 #>
 
 Param (
 	[Parameter(ParameterSetName = 'changestandard')]
 	[Parameter(ParameterSetName = 'addcustom')]
 	[Parameter(ParameterSetName = 'removecustom')]
+	[Parameter(ParameterSetName = 'operateui')]
 	[string]$SyncConfPath,
 	[Parameter(ParameterSetName = 'changestandard')]
 	[string]$NewBootstrap,
@@ -75,13 +87,40 @@ Param (
 	[string]$CustomParameterValue,
 	[Parameter(ParameterSetName = 'removecustom')]
 	[switch]$RemoveCustomParameter,
+	[Parameter(ParameterSetName = 'operateui')]
+	[switch]$EnableAgentUI,
+	[Parameter(ParameterSetName = 'operateui')]
+	[switch]$CreateAgentUIShortcut,
+	[Parameter(ParameterSetName = 'operateui')]
+	[switch]$AutorunAgentUI,
 	[Parameter(ParameterSetName = 'changestandard')]
 	[Parameter(ParameterSetName = 'addcustom')]
 	[Parameter(ParameterSetName = 'removecustom')]
+	[Parameter(ParameterSetName = 'operateui')]
 	[switch]$RestartAgent,
 	[Parameter(ParameterSetName = 'gracefulrestart')]
 	[switch]$PerformGracefulRestart
 )
+
+function Create-AgentShortcut()
+{
+	Param
+	(
+		[string]$PathToShortcut
+	)
+	
+	$AgentInstallPath = (Get-ItemProperty -path 'HKLM:\SOFTWARE\Resilio, Inc.\Resilio Connect Agent\').InstallDir
+	$AgentExePath = Join-Path -Path $AgentInstallPath -ChildPath 'Resilio Connect Agent.exe'
+	
+	$AgentUIShortcutPath = Join-Path -Path $PathToShortcut -ChildPath "Resilio Connect Agent UI.lnk"
+	
+	$WshShell = New-Object -comObject WScript.Shell
+	$AgentShortcut = $WshShell.CreateShortcut($AgentUIShortcutPath)
+	$AgentShortcut.TargetPath = $AgentExePath
+	$AgentShortcut.Save()
+	
+}
+# --------------------------------------------------------------------------------------------------------------------------------
 
 $xmlpart1 = '<?xml version="1.0" encoding="UTF-16"?>
 		<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
@@ -143,10 +182,9 @@ $ownscriptname = Split-Path $ownscriptpathname -Leaf
 
 try
 {
-	# Just shut down the agent service and start it again. Gracefully, no pressure
 	if ($PerformGracefulRestart)
 	{
-		Write-Verbose "Stopping service"
+		Write-Verbose "Shutting down the agent service and start it again. Gracefully, no pressure"
 		Get-Service -Name "connectsvc" | Stop-Service -ErrorAction Continue
 		$ServiceStatus = 'Running'
 		while ($ServiceStatus -ne 'Stopped')
@@ -161,28 +199,47 @@ try
 		exit
 	}
 	
-	# If path to sync.conf not specified, extract it from regisrty
 	if (-not $SyncConfPath)
 	{
+		Write-Verbose ")ath to sync.conf not specified, trying to extract it from regisrty"
 		$AgentInstallPath = (Get-ItemProperty -path 'HKLM:\SOFTWARE\Resilio, Inc.\Resilio Connect Agent\').InstallDir
 		$SyncConfPath = Join-Path -Path $AgentInstallPath -ChildPath 'sync.conf'
 	}
 	
-	# Get sync.conf content
-	$syncconf = Get-Content -Path $SyncConfPath | ConvertFrom-Json
+	Write-Verbose "Load sync.conf content, path is $SyncConfPath"
+	$syncconf = Get-Content -Path $SyncConfPath | Out-String | ConvertFrom-Json
 	
-	# Update standard parameters here
+	Write-Verbose "Updating standard parameters if necessary"
 	if ($NewBootstrap) { $syncconf.management_server.bootstrap_token = $NewBootstrap }
 	if ($NewHost) { $syncconf.management_server.host = $NewHost }
 	if ($NewFingerprint) { $syncconf.management_server.cert_authority_fingerprint = $NewFingerprint }
 	if ($NewStoragePath) { $syncconf.folders_storage_path = $NewStoragePath }
 	
-	# Check for custom parameter
+	if ($EnableAgentUI)
+	{
+		Write-Verbose "Operating agent UI explicitly via parameter"
+		$CustomParameterName = "use_gui"
+		$CustomParameterValue = "true"
+	}
+	
+	if ($CreateAgentUIShortcut)
+	{
+		Write-Verbose "Creating agent shortcut for all users"
+		Create-AgentShortcut -PathToShortcut ([Environment]::GetFolderPath("CommonDesktopDirectory"))
+	}
+	
+	if ($AutorunAgentUI)
+	{
+		Write-Verbose "Creating agent shortcut in autoruns section for all users"
+		Create-AgentShortcut -PathToShortcut ([Environment]::GetFolderPath("CommonStartup"))
+	}
+	
 	if ($CustomParameterName)
 	{
+		Write-Verbose "Changing custom parameter $CustomParameterName"
 		if ($RemoveCustomParameter)
 		{
-			# Remove custom parameter if it exists here
+			Write-Verbose "Removing custom parameter $CustomParameterName"
 			if ($CustomParameterName -in $syncconf.PSobject.Properties.Name)
 			{
 				$syncconf.PSObject.Properties.Remove($CustomParameterName)
@@ -191,21 +248,22 @@ try
 		}
 		else
 		{
+			Write-Verbose "Changing custom parameter $CustomParameterName to value $CustomParameterValue"
 			# Update custom parameters here, keeping in mind it's type to avoid extra quotes
 			$CustomParameterValueTyped = $CustomParameterValue
 			if ($CustomParameterValue -as [int]) { [int]$CustomParameterValueTyped = $CustomParameterValue }
-			if ($CustomParameterValue -like "*true*") { [bool]$CustomParameterValueTyped = $true }
-			if ($CustomParameterValue -like "*false*") { [bool]$CustomParameterValueTyped = $false }
-			Add-Member -InputObject $syncconf -NotePropertyName $CustomParameterName -NotePropertyValue $CustomParameterValueTyped -Force 
+			if ($CustomParameterValue -like "*true") { [bool]$CustomParameterValueTyped = $true }
+			if ($CustomParameterValue -like "*false") { [bool]$CustomParameterValueTyped = $false }
+			Add-Member -InputObject $syncconf -NotePropertyName $CustomParameterName -NotePropertyValue $CustomParameterValueTyped -Force
 		}
 	}
 	
 	Set-Content -Path $SyncConfPath -Value (ConvertTo-Json $syncconf)
 	Write-Output "sync.conf file updated"
 	
-	# Restart agent if required
 	if ($RestartAgent)
 	{
+		Write-Verbose "Scheduling agent graceful restart"
 		$SchedulerXML = "$xmlpart1$ownscriptpathname$xmlpart2"
 		Set-Content -Path "ResilioRestart.xml" -Value $SchedulerXML
 		Start-Process -FilePath "schtasks" -ArgumentList "/create /TN ResilioRestart /XML ResilioRestart.xml /F"
@@ -216,6 +274,7 @@ try
 }
 catch
 {
+	Write-Verbose "Exception triggered"
 	Write-Error "$_"
 	Write-Output "sync.conf not modified"
 }
