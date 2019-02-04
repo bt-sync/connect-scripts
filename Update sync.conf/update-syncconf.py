@@ -3,8 +3,8 @@
 # title           :update-syncconfig.py
 # description     :This script updates sync.config of Resilio Connect Agent
 # author          :Alexey Costroma
-# date            :20190129
-# version         :0.2
+# date            :20190131
+# version         :0.3
 # usage           :python update-syncconfig.py
 # python_version  :2.7.10
 # ==============================================================================
@@ -19,7 +19,6 @@ import sys
 import time
 
 
-
 management_server_args = ['bootstrap_token',
                           'cert_authority_fingerprint',
                           'disable_cert_check',
@@ -27,7 +26,7 @@ management_server_args = ['bootstrap_token',
 
 launch_daemon_path = '/Library/LaunchDaemons/com.resilio.agent.plist'
 agent_daemon_config = '/Users/resilioagent/Library/Application Support/Resilio Connect Agent/sync.conf'
-agent_process_name = 'Resilio Connect'
+agent_process_name = 'Resilio Connect Agent.app/Contents/MacOS/Resilio Connect Agent'
 
 
 def main():
@@ -38,10 +37,9 @@ def main():
 
     logging.info('Current sync.conf is:' + os.linesep + str(config) + os.linesep)
 
-    new_config = process_tasks(config, args)
-    if new_config:
-        save_agent_config(args.config, new_config)
-        logging.info(Colors.green + 'New sync.conf is:' + os.linesep + str(config) + Colors.end + os.linesep)
+    process_tasks(config, args)
+
+    sys.exit(0)
 
 
 def init_logging(log_to_file=False):
@@ -49,6 +47,7 @@ def init_logging(log_to_file=False):
         logging.basicConfig(filename='update-syncconf.log', format='%(message)s', level=logging.INFO)
     else:
         logging.basicConfig(format='%(message)s', level=logging.INFO)
+
 
 def process_tasks(config, args):
     create_new_config = False
@@ -103,66 +102,62 @@ def process_tasks(config, args):
         create_new_config = True
         delete_parameter(args.delete, config)
 
-    if args.restart_agent is not None:
+    if create_new_config:
+        save_agent_config(args.config, config)
+        logging.info(Colors.green + 'New sync.conf is:' + os.linesep + str(config) + Colors.end + os.linesep)
+
+    if args.restart_agent:
         restart_agent()
 
-    if create_new_config:
-        return config
-    else:
-        return None
+    if args.restart_agent_daemon:
+        restart_agent_daemon()
 
 
 def restart_agent():
-    if stop_agent_daemon():
-        start_agent_daemon()
-        return
-
+    logging.info('Attempting to restart Resilio Connect Agent in 2 minutes')
     stop_agent()
+    time.sleep(5)
     start_agent()
+
+
+def restart_agent_daemon():
+    stop_agent_daemon()
+    start_agent_daemon()
 
 
 def stop_agent_daemon():
     if os.path.isfile(launch_daemon_path):
         logging.info('Stopping Resilio Connect Agent daemon.')
-        subprocess.call(['sudo', 'launchctl', 'unload', '-w', '/Library/LaunchDaemons/com.resilio.agent.plist'])
+        subprocess.call(['sudo', 'launchctl', 'unload', '-w', launch_daemon_path])
         logging.info('Done.')
         return True
 
-    return False
+    logging.error(Colors.red + 'Can\'t find launchd daemon of Resilio Connect Agent: {}'.format(launch_daemon_path)
+                  + Colors.end)
+
+    sys.exit(1)
 
 
 def start_agent_daemon():
     if os.path.isfile(launch_daemon_path):
         logging.info('Starting Resilio Connect Agent daemon.')
-        subprocess.call(['sudo', 'launchctl', 'load', '-w', '/Library/LaunchDaemons/com.resilio.agent.plist'])
+        subprocess.call(['sudo', 'launchctl', 'load', '-w', launch_daemon_path])
         logging.info('Done. Resilio Connect Agent should start in a 90 seconds')
-        return True
+        return
 
-    return False
+    logging.error(Colors.red + 'Can\'t find launchd daemon of Resilio Connect Agent: {}'.format(launch_daemon_path)
+                  + Colors.end)
+    sys.exit(1)
 
 
 def stop_agent():
-    agent_pid = get_pid(agent_process_name)
-    if len(agent_pid) > 1:
-        logging.info(Colors.red + 'Several PIDs found! Can\'t stop Resilio Connect Agent' + Colors.end)
-        sys.exit(1)
-
-    if agent_pid:
-        os.kill(agent_pid[0], signal.SIGTERM)
-        while get_pid(agent_process_name):
-            logging.info('Waiting for Resilio Connect Agent to quit...')
-            time.sleep(5)
-
-        logging.info('Done.')
+    cmd = """(crontab -l ; echo \'* * * * * echo "STOP_RSL_AGENT" ; osascript -e "quit app \\\"Resilio Connect Agent\\\"" ; crontab -l | grep -v \'STOP_RSL_AGENT\' | crontab\')| crontab \-"""
+    subprocess.Popen(cmd, shell=True)
 
 
 def start_agent():
-    subprocess.Popen(['/Applications/Resilio Connect Agent.app/Contents/MacOS/Resilio Connect Agent'])
-    agent_pid = get_pid(agent_process_name)
-    if agent_pid:
-        logging.info('Started Resilio Connect Agent. PID {}'.format(agent_pid[0]))
-    else:
-        logging.error(Colors.red + 'Failed to start Resilio Connect Agent' + Colors.end)
+    cmd = "(crontab -l ; echo \"*/2 * * * * open '/Applications/Resilio Connect Agent.app' ; crontab -l | grep -v 'Applications/Resilio Connect Agent.app' | crontab\")| crontab \-"
+    subprocess.Popen(cmd, shell=True)
 
 
 def delete_parameter(name, config):
@@ -270,19 +265,10 @@ class Colors:
     end = '\033[0m'
 
 
-def get_pid(name):
-    try:
-        pid_list = map(int, list(set(subprocess.check_output(["pidof", name]).split())))
-    except subprocess.CalledProcessError:
-        pid_list = []
-
-    return pid_list
-
-
 def parse_arguments():
     user_home = os.path.expanduser("~")
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config',
+    parser.add_argument('--config', '-c',
                         default='{}/Library/Application Support/Resilio Connect Agent/sync.conf'.format(user_home),
                         metavar='<path_to_sync.conf>',
                         required=True,
@@ -298,9 +284,14 @@ def parse_arguments():
                         metavar='<parameter_name>',
                         help='delete parameter')
 
-    parser.add_argument('--restart_agent',
+    parser.add_argument('--restart_agent', '-r',
                         default=False,
                         help='restart Resilio Connect Agent after applying config',
+                        action='store_true')
+
+    parser.add_argument('--restart_agent_daemon', '-rd',
+                        default=False,
+                        help='restart launchd daemon of Resilio Connect Agent after applying config',
                         action='store_true')
 
     parser.add_argument('--host',
