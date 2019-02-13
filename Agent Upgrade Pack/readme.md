@@ -36,8 +36,9 @@ The script verifies if all the pre-requisites are met to perform an upgrade. In 
 | 13            | Laptop is runninng on battery mode, upgrade won't launch until user connects to AC          |
 | 14            | task scheduler not running, upgrade not possible                                            |
 | 15            | installed version is newer than one supplied, upgrade script stops with no changes          |
+| 16            | Agent installation not found (no proper registry key pointing to executable location)       |
 
-If error code is higher than zero, log of the verification is dumped to "verify.log" file next to the script.
+If error code is higher than zero, log of the verification is dumped to "verify.log" file next to the script. If you do not plan to deply any x86 machines upgrade, specify `-NoX86exeCheck` switch.
 
 ## ResilioUpgrade.xml
 This XML contains proper configuration for the task which will run the upgrade script.

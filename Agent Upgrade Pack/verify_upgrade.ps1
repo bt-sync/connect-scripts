@@ -1,4 +1,6 @@
 <#
+.PARAMETER $NoX86exeCheck
+Specify to avoid checking the existence of x86 binary in the download folder
 
 .OUTPUTS
 The script sets errorlevel to reflect results of the check
@@ -7,6 +9,11 @@ The script sets errorlevel to reflect results of the check
   2 - some checks fail, do not proceed to upgrade
 #>
 
+param
+(
+	[switch]$NoX86exeCheck
+)
+
 #Don't make a [CmdletBinding()] here. This will prevent to set %ERRORLEVEL% in PS2.0
 
 $errcode = 0
@@ -14,33 +21,40 @@ $errcode = 0
 try
 {
 	Add-Type -Assembly System.Windows.Forms
-	######### Check 0
+	######### Check 0 - files
 	$filecheckfailure = $false
-	Write-Host "Checking if all necessary files are present..."
+	Write-Output "Checking if all necessary files are present..."
 	if (!(Test-Path ".\Resilio-Connect-Agent.exe" -PathType Leaf))
 	{
-		Write-Host "Resilio-Connect-Agent.exe file is missing"
-		$filecheckfailure = $true
-		$errcode = 2
+		if (!$NoX86exeCheck)
+		{
+			Write-Output "Resilio-Connect-Agent.exe file is missing"
+			$filecheckfailure = $true
+			$errcode = 2
+		}
+		else
+		{
+			Write-Output "Bypassing x86 binary check as requested"
+		}
 	}
 	
 	if (!(Test-Path "Resilio-Connect-Agent_x64.exe" -PathType Leaf))
 	{
-		Write-Host "Resilio-Connect-Agent_x64.exe file is missing"
+		Write-Output "Resilio-Connect-Agent_x64.exe file is missing"
 		$filecheckfailure = $true
 		$errcode = 3
 	}
 	
 	if (!(Test-Path "agent_upgrade.ps1" -PathType Leaf))
 	{
-		Write-Host "agent_upgrade.ps1 script is missing"
+		Write-Output "agent_upgrade.ps1 script is missing"
 		$filecheckfailure = $true
 		$errcode = 4
 	}
 	
 	if (!(Test-Path "ResilioUpgrade.xml" -PathType Leaf))
 	{
-		Write-Host "ResilioUpgrade.xml configuration file is missing"
+		Write-Output "ResilioUpgrade.xml configuration file is missing"
 		$filecheckfailure = $true
 		$errcode = 5
 	}
@@ -49,39 +63,39 @@ try
 	{
 		throw "Some files are missing, upgrade impossile"
 	}
-	Write-Host "[OK]"
+	Write-Output "[OK]"
 	
-	######### Check 1
-	Write-Host "Checking for elevated privileges..."
+	######### Check 1 - elevated privileges
+	Write-Output "Checking for elevated privileges..."
 	$currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 	if (!$currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator))
 	{
 		$errcode = 12
 		throw "Script is not running with elevated privileges, upgrade impossible"
 	}
-	Write-Host "[OK]"
+	Write-Output "[OK]"
 	
-	######### Check 2
-	Write-Host "Checking computer is AC powered..."
+	######### Check 2 - if running on battery
+	Write-Output "Checking computer is AC powered..."
 	
 	if ([System.Windows.Forms.SystemInformation]::PowerStatus.PowerLineStatus -ne 'Online')
 	{
 		$errcode = 13
 		throw "Computer runs on battery power, upgrade is too risky now"
 	}
-	Write-Host "[OK]"
+	Write-Output "[OK]"
 	
-	######### Check 3
-	Write-Host "Checking Task Scheduler service is running..."
+	######### Check 3 - if task scheduler works
+	Write-Output "Checking Task Scheduler service is running..."
 	if ((Get-Service -Name "schedule").Status -ne 'Running')
 	{
 		$errcode = 14
 		throw "Task Scheduler service is not running, upgrade is not possible"
 	}
-	Write-Host "[OK]"
-	
-	######### Check 4
-	Write-Host "Checking Agent versions..."
+	Write-Output "[OK]"
+		
+	######### Check 4 - checking the agent version
+	Write-Output "Checking Agent versions..."
 	$ownscriptpathname = (Resolve-Path $MyInvocation.InvocationName).Path
 	$ownscriptpath = Split-Path -Path $ownscriptpathname
 	$ownscriptname = Split-Path $ownscriptpathname -Leaf
@@ -90,7 +104,13 @@ try
 	$agentupgradeablex64 = "Resilio-Connect-Agent_x64.exe"
 	if ([IntPtr]::size -eq 8) { $agentupgradeble = $agentupgradeablex64 }
 	else { $agentupgradeble = $agentupgradeablex86 }
-	$processpath = (Get-ItemProperty -path 'HKLM:\SOFTWARE\Resilio, Inc.\Resilio Connect Agent\').InstallDir
+	$tmp = Get-ItemProperty -path 'HKLM:\SOFTWARE\Resilio, Inc.\Resilio Connect Agent\' -ErrorAction SilentlyContinue
+	if (!$tmp)
+	{
+		$errcode = 16
+		throw "Agent installation not found on target system"
+	}
+	$processpath = $tmp.InstallDir
 	$fullexepath = Join-Path -Path $processpath -ChildPath $processname
 	$fullupgradeablepath = Join-Path -Path $ownscriptpath -ChildPath $agentupgradeble
 	[System.Version]$oldversion = [System.Diagnostics.FileVersionInfo]::GetVersionInfo("$fullexepath").FileVersion
@@ -102,15 +122,15 @@ try
 	}
 	if ($oldversion -eq $newversion)
 	{
-		Write-Host "Same version detected, no point in launching upgrade"
+		Write-Output "Same version detected, no point in launching upgrade"
 		exit 1
 	}
 	Write-Debug "Ugprading from $oldversion to $newversion"
-	Write-Host "[OK]"
+	Write-Output "[OK]"
 }
 catch
 {
-	Write-Host "Error during upgrade verifiction: $_"
+	Write-Output "Error during upgrade verification: $_"
 	exit $errcode
 }
 
