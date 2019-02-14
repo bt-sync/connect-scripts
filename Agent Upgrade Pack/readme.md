@@ -33,7 +33,7 @@ The script verifies if all the pre-requisites are met to perform an upgrade. In 
 | 4             | powershell script agent_upgrade.ps1 missing                                                 |
 | 5             | Task Scheduler configuration file resilioupgrade.xml missing                                |
 | 12            | Agent runs without elevated privileges, upgrade not possible                                |
-| 13            | Laptop is runninng on battery mode, upgrade won't launch until user connects to AC          |
+| 13            | Laptop is runninng on battery mode, upgrade impossible. Once laptop powered, start job again|
 | 14            | task scheduler not running, upgrade not possible                                            |
 | 15            | installed version is newer than one supplied, upgrade script stops with no changes          |
 | 16            | Agent installation not found (no proper registry key pointing to executable location)       |
