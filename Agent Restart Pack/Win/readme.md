@@ -1,4 +1,4 @@
-# Agent Upgrade Pack
+# Agent Restart Pack
 
 This folder contains set of scripts and components to perform agent restart via Distribution job. Restart technique implies startup of the scripts via TaskScheduler service to fully detach from original agent performing restart of Resilio Connect agent process. 
 
